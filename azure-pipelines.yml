@@ -1,42 +1,117 @@
+trigger:
+- main
+
 stages:
+
+# ================= DEV =================
 - stage: Dev
   displayName: "Dev Stage"
+
   jobs:
-  - deployment: DevDeploy
-    environment: Dev
-    strategy:
-      runOnce:
-        deploy:
-          steps:
+    - job: DevJob
+      pool:
+        vmImage: 'ubuntu-latest'
 
-          # ✅ STEP 1: Remove Phone 2 column
-          - script: |
-              echo "Removing Phone 2 column..."
+      steps:
+        - checkout: self
 
-              awk -F',' 'BEGIN{OFS=","} {
-                for(i=1;i<=NF;i++){
-                  if(i!=9) printf "%s%s",$i,(i==NF?"":OFS)
-                }
-                print ""
-              }' $(System.DefaultWorkingDirectory)/customers-1000.csv > updated.csv
+        # 🔹 STEP 1: Remove Phone 2 column
+        - script: |
+            echo "Removing Phone 2 column..."
 
-              mv updated.csv $(System.DefaultWorkingDirectory)/customers-1000.csv
+            awk -F',' 'BEGIN{OFS=","} {
+              for(i=1;i<=NF;i++){
+                if(i!=9) printf "%s%s",$i,(i==NF?"":OFS)
+              }
+              print ""
+            }' customers-1000.csv > updated.csv
 
-              echo "Preview after change:"
-              head -5 $(System.DefaultWorkingDirectory)/customers-1000.csv
+            mv updated.csv customers-1000.csv
 
-            displayName: "Remove Phone 2 Column"
+            echo "Preview after change:"
+            head -5 customers-1000.csv
 
-          # ✅ STEP 2: Upload updated file to storage
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: 'azure-conn'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                az storage blob upload \
-                  --account-name storageaccountrevs \
-                  --container-name revannadev-uat-prod \
-                  --name customers-1000.csv \
-                  --file $(System.DefaultWorkingDirectory)/customers-1000.csv \
-                  --auth-mode login
+          displayName: "Remove Phone 2 Column"
+
+        # 🔹 STEP 2: Publish artifact
+        - publish: customers-1000.csv
+          artifact: datafile
+
+        # 🔹 STEP 3: Upload to DEV
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: 'azure-conn'
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              echo "Uploading to DEV..."
+
+              az storage blob upload \
+                --account-name storageaccountrevs \
+                --container-name revannadev-uat-prod \
+                --name dev/customers-1000.csv \
+                --file customers-1000.csv \
+                --auth-mode login \
+                --overwrite true
+
+
+# ================= UAT =================
+- stage: UAT
+  displayName: "UAT Stage"
+  dependsOn: Dev
+
+  jobs:
+    - job: UATJob
+      pool:
+        vmImage: 'ubuntu-latest'
+
+      steps:
+        - download: current
+          artifact: datafile
+
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: 'azure-conn'
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              echo "Uploading to UAT..."
+
+              az storage blob upload \
+                --account-name storageaccountrevs \
+                --container-name revannadev-uat-prod \
+                --name uat/customers-1000.csv \
+                --file $(Pipeline.Workspace)/datafile/customers-1000.csv \
+                --auth-mode login \
+                --overwrite true
+
+
+# ================= PROD =================
+- stage: Prod
+  displayName: "Prod Stage"
+  dependsOn: UAT
+
+  jobs:
+    - job: ProdJob
+      pool:
+        vmImage: 'ubuntu-latest'
+
+      steps:
+        - download: current
+          artifact: datafile
+
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: 'azure-conn'
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              echo "Uploading to PROD..."
+
+              az storage blob upload \
+                --account-name storageaccountrevs \
+                --container-name revannadev-uat-prod \
+                --name prod/customers-1000.csv \
+                --file $(Pipeline.Workspace)/datafile/customers-1000.csv \
+                --auth-mode login \
+                --overwrite true
