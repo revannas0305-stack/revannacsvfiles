@@ -5,68 +5,33 @@ stages:
 
 - stage: Dev
   displayName: "Dev Stage"
-  jobs:
-  - deployment: DevDeploy
-    environment: Dev
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: 'azure-conn'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                az storage blob upload \
-                  --account-name storageaccountrevs \
-                  --container-name revannadev-uat-prod \
-                  --name customers-1000-dev.csv \
-                  --file customers-1000.csv \
-                  --auth-mode login
 
-- stage: UAT
-  displayName: "UAT Stage"
-  dependsOn: Dev
   jobs:
-  - deployment: UATDeploy
-    environment: UAT
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: 'azure-conn'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                az storage blob upload \
-                  --account-name storageaccountrevs \
-                  --container-name revannadev-uat-prod \
-                  --name customers-1000-uat.csv \
-                  --file customers-1000.csv \
-                  --auth-mode login
+    - job: DevJob
+      pool:
+        vmImage: 'ubuntu-latest'
 
-- stage: Prod
-  displayName: "Prod Stage"
-  dependsOn: UAT
-  jobs:
-  - deployment: ProdDeploy
-    environment: Prod
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: 'azure-conn'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                az storage blob upload \
-                  --account-name storageaccountrevs \
-                  --container-name revannadev-uat-prod \
-                  --name customers-1000-prod.csv \
-                  --file customers-1000.csv \
-                  --auth-mode login
+      steps:
+        - checkout: self
+
+        - script: |
+            echo "===== DEBUG START ====="
+            pwd
+            ls -R
+            echo "===== DEBUG END ====="
+          displayName: "Check Files"
+
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: 'azure-conn'
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              echo "Uploading file..."
+
+              az storage blob upload \
+                --account-name storageaccountrevs \
+                --container-name revannadev-uat-prod \
+                --name customers-1000-dev.csv \
+                --file customers-1000.csv \
+                --auth-mode login
