@@ -12,12 +12,22 @@ stages:
       runOnce:
         deploy:
           steps:
-          - script: echo "Deploying to DEV"
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'azure-conn'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az storage blob upload \
+                  --account-name storageaccountrevs \
+                  --container-name revannadev-uat-prod \
+                  --name customers-1000-dev.csv \
+                  --file customers-1000.csv \
+                  --auth-mode login
 
 - stage: UAT
   displayName: "UAT Stage"
   dependsOn: Dev
-  condition: succeeded()
   jobs:
   - deployment: UATDeploy
     environment: UAT
@@ -25,12 +35,22 @@ stages:
       runOnce:
         deploy:
           steps:
-          - script: echo "Deploying to UAT"
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'azure-conn'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az storage blob upload \
+                  --account-name storageaccountrevs \
+                  --container-name revannadev-uat-prod \
+                  --name customers-1000-uat.csv \
+                  --file customers-1000.csv \
+                  --auth-mode login
 
 - stage: Prod
   displayName: "Prod Stage"
   dependsOn: UAT
-  condition: succeeded()
   jobs:
   - deployment: ProdDeploy
     environment: Prod
@@ -38,4 +58,15 @@ stages:
       runOnce:
         deploy:
           steps:
-          - script: echo "Deploying to PROD"
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'azure-conn'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az storage blob upload \
+                  --account-name storageaccountrevs \
+                  --container-name revannadev-uat-prod \
+                  --name customers-1000-prod.csv \
+                  --file customers-1000.csv \
+                  --auth-mode login
