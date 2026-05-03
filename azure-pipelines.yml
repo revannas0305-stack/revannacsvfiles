@@ -3,6 +3,7 @@ trigger:
 
 stages:
 
+# ================= DEV =================
 - stage: Dev
   displayName: "Dev Stage"
 
@@ -15,11 +16,9 @@ stages:
         - checkout: self
 
         - script: |
-            echo "===== DEBUG START ====="
-            pwd
+            echo "Checking files..."
             ls -R
-            echo "===== DEBUG END ====="
-          displayName: "Check Files"
+          displayName: "Debug Files"
 
         - task: AzureCLI@2
           inputs:
@@ -27,11 +26,69 @@ stages:
             scriptType: 'bash'
             scriptLocation: 'inlineScript'
             inlineScript: |
-              echo "Uploading file..."
+              echo "Uploading to DEV..."
 
               az storage blob upload \
                 --account-name storageaccountrevs \
                 --container-name revannadev-uat-prod \
-                --name customers-1000-dev.csv \
+                --name dev/customers-1000.csv \
+                --file customers-1000.csv \
+                --auth-mode login
+
+
+# ================= UAT =================
+- stage: UAT
+  displayName: "UAT Stage"
+  dependsOn: Dev
+
+  jobs:
+    - job: UATJob
+      pool:
+        vmImage: 'ubuntu-latest'
+
+      steps:
+        - checkout: self
+
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: 'azure-conn'
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              echo "Uploading to UAT..."
+
+              az storage blob upload \
+                --account-name storageaccountrevs \
+                --container-name revannadev-uat-prod \
+                --name uat/customers-1000.csv \
+                --file customers-1000.csv \
+                --auth-mode login
+
+
+# ================= PROD =================
+- stage: Prod
+  displayName: "Prod Stage"
+  dependsOn: UAT
+
+  jobs:
+    - job: ProdJob
+      pool:
+        vmImage: 'ubuntu-latest'
+
+      steps:
+        - checkout: self
+
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: 'azure-conn'
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              echo "Uploading to PROD..."
+
+              az storage blob upload \
+                --account-name storageaccountrevs \
+                --container-name revannadev-uat-prod \
+                --name prod/customers-1000.csv \
                 --file customers-1000.csv \
                 --auth-mode login
